@@ -29,15 +29,35 @@ public class ClienteHilo extends Thread {
     private static int premios = 0;
     Cliente clienteVista;
     private String mensajeUser;
+    Socket socketCliente = null;
+    BufferedReader entrada = null;
+    PrintWriter salida = null;
+    String idRecibido = "";
+    ObjectInputStream objectInputStream = null;
+    boolean register = false;
 
     public ClienteHilo(Cliente clienteVista) {
         this.clienteVista = clienteVista;
-    }
+        try {
+            // Establecer la conexión con el servidor
+            socketCliente = new Socket("localhost", 4444);
 
+            // Inicializar los canales de entrada y salida
+            entrada = new BufferedReader(new InputStreamReader(socketCliente.getInputStream()));
+            salida = new PrintWriter(socketCliente.getOutputStream(), true);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+    
     @Override
     public void run() {
         try {
-            empezarCliente();
+            try {
+                empezarCliente(entrada,salida);
+            } catch (InterruptedException ex) {
+                Logger.getLogger(ClienteHilo.class.getName()).log(Level.SEVERE, null, ex);
+            }
         } catch (IOException ex) {
             Logger.getLogger(ClienteHilo.class.getName()).log(Level.SEVERE, null, ex);
         } catch (ClassNotFoundException ex) {
@@ -45,65 +65,60 @@ public class ClienteHilo extends Thread {
         }
     }
 
-    public synchronized void empezarCliente() throws IOException, ClassNotFoundException {
-        Socket socketCliente = null;
-        BufferedReader entrada = null;
-        PrintWriter salida = null;
-        String idRecibido = "";
-        ObjectInputStream objectInputStream = null;
-        boolean register = false;
-        
+    public void empezarCliente(BufferedReader entrada,PrintWriter salida) throws IOException, ClassNotFoundException, InterruptedException {
+
         // Creamos un socket en el lado cliente, enlazado con un
         // servidor que está en la misma máquina que el cliente
         // y que escucha en el puerto 4444
-        try {
-            socketCliente = new Socket("localhost", 4444);
-            // Obtenemos el canal de entrada
-            entrada = new BufferedReader(
-                    new InputStreamReader(socketCliente.getInputStream()));
-            // Obtenemos el canal de salida
-            salida = new PrintWriter(
-                    new BufferedWriter(
-                            new OutputStreamWriter(socketCliente.getOutputStream())), true);
+        while (true) {
+            try {
+                
+                String idRecibido = "";
+                // La envia al servidor por el OutputStream
+                if (!register) {
 
-            // La envia al servidor por el OutputStream
-            if (!register) {
-                String conectado = "REGISTER";
-                salida.println(conectado);
-                register = true;
-                // Recibe la respuesta del servidor por el InputStream
-                idRecibido = entrada.readLine();
-                // Envía a la salida estándar la respuesta del servidor
-                System.out.println("Respuesta servidor: " + idRecibido);
-                clienteVista.escribirId(idRecibido);
-            }else{
-                String mensajeDelServidor;
+                    String conectado = "REGISTER";
+                    salida.println(conectado);
+                    register = true;
+                    // Recibe la respuesta del servidor por el InputStream
+                    idRecibido = entrada.readLine();
+                    // Envía a la salida estándar la respuesta del servidor
+                    System.out.println("Respuesta servidor: " + idRecibido);
+                    clienteVista.escribirId(idRecibido);
 
-                mensajeDelServidor = entrada.readLine();
-                String[] partes = obtenerArrayDesdeMensaje(mensajeDelServidor);
-                clienteVista.appendTextArea(partes[0], partes[1], partes[2]);
+                }
+                String mensajeDelServidor = entrada.readLine();
+                if (mensajeDelServidor != null) {
 
-                // Libera recursos
-                salida.close();
-                entrada.close();
-                socketCliente.close();
+                    String[] partes = obtenerArrayDesdeMensaje(mensajeDelServidor);
+                    clienteVista.appendTextArea(partes[0], partes[1], partes[2]);
+
+                    
+                }
+            } catch (IOException e) {
+                System.err.println("No puede establecer canales de E/S para la conexión" + e.getMessage());
+                System.exit(-1);
             }
-            
-
-            
-
-        } catch (IOException e) {
-            System.err.println("No puede establecer canales de E/S para la conexión");
-            System.exit(-1);
         }
 
-
+        // Método que devuelve un array de strings a partir de un mensaje
     }
 
-    // Método que devuelve un array de strings a partir de un mensaje
     private static String[] obtenerArrayDesdeMensaje(String mensaje) {
         // Dividir el mensaje utilizando la coma como delimitador
         return mensaje.split(",");
     }
 
+    public void enviarMensajeAlServidor(String mensaje) {
+        PrintWriter salida;
+        try {
+            salida = new PrintWriter(socketCliente.getOutputStream(), true);
+            if (salida != null) {
+            salida.println(mensaje);
+            }
+        } catch (IOException ex) {
+            Logger.getLogger(ClienteHilo.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        
+    }
 }

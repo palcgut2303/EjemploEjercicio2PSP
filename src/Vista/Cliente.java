@@ -7,6 +7,7 @@ package Vista;
 import Modelo.ClienteHilo;
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintWriter;
@@ -25,26 +26,15 @@ public class Cliente extends javax.swing.JDialog {
     private int premios = 0;
     private int intentos = 0;
     private int id = 0;
-    ClienteHilo cliente;
+    ClienteHilo clienteThread;
     private String mensaje = "";
     Socket socketCliente = null;
-    public int getPremios() {
-        return premios;
-    }
-    
-    public void setPremios(int premios) {
-        this.premios = premios;
-    }
     
     public Cliente(java.awt.Frame parent, boolean modal) {
         super(parent, modal);
         initComponents();
-        try {
-           socketCliente = new Socket("localhost", 4444);
-        } catch (IOException ex) {
-            Logger.getLogger(Cliente.class.getName()).log(Level.SEVERE, null, ex);
-        }
-        iniciarCliente();
+         clienteThread = new ClienteHilo(this);
+         clienteThread.start();
         
     }
 
@@ -247,9 +237,12 @@ public class Cliente extends javax.swing.JDialog {
             String fila = jTFfila.getText();
             String columna = jTFcolumna.getText();
              mensaje = fila + " " + columna;
-            enviarMensajeAlServidor(socketCliente, mensaje);
+             clienteThread.enviarMensajeAlServidor(mensaje);
+            //enviarMensajeAlServidor(socketCliente, mensaje);
         } else {
-            JOptionPane.showMessageDialog(this, "Ya has jugado demasiado, DESCANSA Y VETE!!!");
+            String premios = jTFpremios.getText();
+            JOptionPane.showMessageDialog(this, "Ya has jugado demasiado, DESCANSA Y VETE!!! PREMIOS:" + premios);
+            dispose();
         }
 
     }//GEN-LAST:event_jBenviarActionPerformed
@@ -258,15 +251,6 @@ public class Cliente extends javax.swing.JDialog {
         dispose();
     }//GEN-LAST:event_jBsalirActionPerformed
     
-    private static void enviarMensajeAlServidor(Socket socket, String mensaje) {
-        try (OutputStream outputStream = socket.getOutputStream()) {
-            byte[] mensajeBytes = mensaje.getBytes();
-            outputStream.write(mensajeBytes);
-            System.out.println("Mensaje enviado al servidor: " + mensaje);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
 
     //Metodo que se utiliza para añadir texto en mi textArea, de los demas clientes
     public void appendTextArea(String fila, String columna, String premio) {
@@ -363,8 +347,7 @@ public class Cliente extends javax.swing.JDialog {
     // End of variables declaration//GEN-END:variables
 
     private void iniciarCliente() {
-            Thread clienteThread = new Thread(new ClienteHilo(this));
-            clienteThread.start();
+            
        
     }
 }
